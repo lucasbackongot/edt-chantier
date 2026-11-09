@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planificateur de chantiers paysagers</title>
+<style>
+  :root{
+    --vert:#2f6b3a; --vert-clair:#e8f1e9; --texte:#1f2a22; --gris:#5d6b61;
+    --bord:#d5ddd6; --fond:#f6f8f6; --blanc:#fff; --alerte:#b3261e; --alerte-fond:#fdecea;
+    --avert:#8a5a00; --avert-fond:#fff4dc;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+       color:var(--texte);background:var(--fond);line-height:1.45;font-size:16px}
+  header{background:var(--vert);color:#fff;padding:14px 16px}
+  header h1{margin:0;font-size:1.25rem}
+  header p{margin:2px 0 0;opacity:.85;font-size:.9rem}
+  main{max-width:1000px;margin:0 auto;padding:16px}
+  section{background:var(--blanc);border:1px solid var(--bord);border-radius:10px;padding:16px;margin-bottom:16px}
+  h2{margin:0 0 12px;font-size:1.05rem;color:var(--vert)}
+  h3{margin:0 0 8px;font-size:.95rem}
+  label{display:block;font-size:.85rem;color:var(--gris);margin-bottom:4px}
+  input,select,textarea{width:100%;font:inherit;padding:9px 10px;border:1px solid var(--bord);
+       border-radius:6px;background:#fff;color:var(--texte)}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--vert);outline-offset:0;border-color:var(--vert)}
+  .grille{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .champs{display:grid;gap:10px}
+  .message{border-radius:8px;padding:12px 14px;margin-bottom:16px}
+  .message.erreur{background:var(--alerte-fond);color:var(--alerte);border:1px solid #f3b8b3}
+  .message.erreur pre{white-space:pre-wrap;background:#fff;color:var(--texte);padding:8px;border-radius:6px;
+       border:1px solid #f3b8b3;overflow:auto;font-size:.85rem;margin:8px 0 0}
+  .message.info{background:var(--vert-clair);color:var(--vert)}
+  .total{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .total div{background:var(--vert-clair);border-radius:8px;padding:10px 14px;flex:1 1 150px}
+  .total strong{display:block;font-size:1.4rem;color:var(--vert)}
+  .total span{font-size:.8rem;color:var(--gris)}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  button{font:inherit;font-size:.9rem;padding:8px 12px;border-radius:6px;border:1px solid var(--vert);
+       background:#fff;color:var(--vert);cursor:pointer}
+  button:hover{background:var(--vert-clair)}
+  .tache{border:1px solid var(--bord);border-radius:8px;padding:12px;margin-bottom:10px;background:#fff}
+  .tache.inactive{background:#f2f2f2;opacity:.7}
+  .tache-entete{display:flex;gap:10px;align-items:flex-start}
+  .tache-entete input[type=checkbox]{width:22px;height:22px;margin-top:2px;flex:none;accent-color:var(--vert)}
+  .tache-titre{font-weight:600}
+  .num{display:inline-block;min-width:1.8em;color:var(--gris);font-weight:400}
+  .details{display:grid;grid-template-columns:120px 120px 1fr;gap:10px;margin-top:10px;align-items:end}
+  .details .materiel{font-size:.9rem}
+  .meta{font-size:.85rem;color:var(--gris);margin-top:8px}
+  .badge{display:inline-block;font-size:.75rem;padding:1px 7px;border-radius:10px;background:var(--avert-fond);
+       color:var(--avert);margin-left:6px;vertical-align:middle;font-weight:500}
+  .avert{font-size:.85rem;color:var(--avert);background:var(--avert-fond);padding:6px 8px;border-radius:6px;margin-top:8px}
+  .sous{margin-top:10px;border-left:3px solid var(--vert-clair);padding-left:10px}
+  .sous-ligne{display:grid;grid-template-columns:1fr 110px;gap:8px;align-items:center;margin-bottom:6px;font-size:.9rem}
+  .lien{background:none;border:none;color:var(--vert);text-decoration:underline;padding:0;font-size:.85rem}
+  .commentaire{font-size:.85rem;font-style:italic;color:var(--gris);margin-top:6px}
+  .cache{display:none}
+  footer{text-align:center;color:var(--gris);font-size:.8rem;padding:10px 0 24px}
+  @media (max-width:700px){
+    main{padding:10px}
+    section{padding:12px}
+    .grille{grid-template-columns:1fr}
+    .details{grid-template-columns:1fr 1fr}
+    .details .materiel{grid-column:1 / -1}
+  }
+  @media print{
+    header{background:none;color:var(--texte)}
+    .actions,button{display:none}
+    section{border:none;padding:0}
+    .tache.inactive{display:none}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Planificateur de chantiers paysagers</h1>
+  <p>Préparation des tâches, durées et effectifs</p>
+</header>
+
+<main>
+  <div id="message" class="message info">Chargement des données…</div>
+
+  <div id="appli" class="cache">
+    <section>
+      <h2>1. Type de chantier</h2>
+      <label for="choixChantier">Chantier</label>
+      <select id="choixChantier"></select>
+    </section>
+
+    <section>
+      <h2>2. Informations</h2>
+      <div class="grille">
+        <div class="champs">
+          <h3>Entreprise</h3>
+          <div><label for="ent-nom">Raison sociale</label><input id="ent-nom" autocomplete="organization"></div>
+          <div><label for="ent-adresse">Adresse</label><input id="ent-adresse" autocomplete="street-address"></div>
+          <div><label for="ent-tel">Téléphone</label><input id="ent-tel" type="tel" autocomplete="tel"></div>
+          <div><label for="ent-email">E-mail</label><input id="ent-email" type="email" autocomplete="email"></div>
+          <div><label for="ent-siret">SIRET</label><input id="ent-siret" inputmode="numeric"></div>
+        </div>
+        <div class="champs">
+          <h3>Client</h3>
+          <div><label for="cli-nom">Nom</label><input id="cli-nom"></div>
+          <div><label for="cli-adresse">Adresse du chantier</label><input id="cli-adresse"></div>
+          <div><label for="cli-tel">Téléphone</label><input id="cli-tel" type="tel"></div>
+          <div><label for="cli-email">E-mail</label><input id="cli-email" type="email"></div>
+          <div><label for="cli-date">Date de début souhaitée</label><input id="cli-date" type="date"></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Tâches</h2>
+      <div class="total">
+        <div><strong id="totalJours">0</strong><span>jours de travail cumulés (tâches cochées)</span></div>
+        <div><strong id="totalJH">0</strong><span>jours-homme (durée × effectif)</span></div>
+        <div><strong id="nbTaches">0</strong><span>tâches retenues</span></div>
+      </div>
+      <div class="actions">
+        <button type="button" id="toutCocher">Tout cocher</button>
+        <button type="button" id="toutDecocher">Tout décocher</button>
+        <button type="button" id="reinit">Rétablir les valeurs d'origine</button>
+      </div>
+      <div id="listeTaches"></div>
+    </section>
+  </div>
+</main>
+<footer>Données chargées depuis <code>chantiers.json</code></footer>
+
+<script>
+(function () {
+  "use strict";
+
+  const FICHIER = "chantiers.json"; // chemin relatif (GitHub Pages en sous-dossier)
+  const el = (id) => document.getElementById(id);
+
+  let chantiers = [];   // données d'origine (jamais modifiées)
+  let etat = null;      // copie de travail du chantier sélectionné
+
+  /* ---------- Utilitaires ---------- */
+  function echapper(t) {
+    return String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function fmt(n) {
+    return (Math.round(n * 100) / 100).toLocaleString("fr-FR");
+  }
+  function jours(n) {
+    return fmt(n) + (n > 1 ? " jours" : " jour");
+  }
+  function estPasDemiJour(n) {
+    return typeof n === "number" && isFinite(n) && n >= 0 && Math.abs(n * 2 - Math.round(n * 2)) < 1e-9;
+  }
+  function afficherErreur(titre, detail, extrait) {
+    const m = el("message");
+    m.className = "message erreur";
+    m.innerHTML = "<strong>" + echapper(titre) + "</strong><br>" + detail +
+      (extrait ? "<pre>" + echapper(extrait) + "</pre>" : "");
+    m.classList.remove("cache");
+    el("appli").classList.add("cache");
+  }
+
+  /* ---------- Erreur de syntaxe JSON : retrouver la ligne ---------- */
+  function positionErreurJSON(err, texte) {
+    const msg = err.message || "";
+    let m = msg.match(/line (\d+) column (\d+)/i);          // Firefox, Chrome récents
+    if (m) return { ligne: +m[1], colonne: +m[2] };
+    m = msg.match(/position (\d+)/i);                         // Chrome / Edge
+    if (m) {
+      const avant = texte.slice(0, +m[1]).split("\n");
+      return { ligne: avant.length, colonne: avant[avant.length - 1].length + 1 };
+    }
+    return null;
+  }
+  function extraitLignes(texte, ligne) {
+    const lignes = texte.split("\n");
+    const debut = Math.max(0, ligne - 3), fin = Math.min(lignes.length, ligne + 2);
+    let out = "";
+    for (let i = debut; i < fin; i++) {
+      out += (i + 1 === ligne ? "→ " : "  ") + String(i + 1).padStart(4) + " | " + lignes[i] + "\n";
+    }
+    return out;
+  }
+
+  /* ---------- Validation du contenu ---------- */
+  function valider(donnees) {
+    const pb = [];
+    if (!Array.isArray(donnees)) return ["Le fichier doit contenir une liste de chantiers entre crochets [ … ]."];
+    if (donnees.length === 0) pb.push("La liste des chantiers est vide.");
+    donnees.forEach((c, ci) => {
+      const ref = "Chantier n°" + (ci + 1) + (c && c.nom ? " (« " + c.nom + " »)" : "");
+      if (!c || typeof c !== "object") { pb.push(ref + " : ce n'est pas un objet."); return; }
+      if (!c.nom) pb.push(ref + " : champ « nom » manquant.");
+      if (!Array.isArray(c.taches)) { pb.push(ref + " : champ « taches » manquant ou pas une liste."); return; }
+      const ids = new Set();
+      c.taches.forEach((t, ti) => {
+        const rt = ref + ", tâche n°" + (ti + 1) + (t && t.nom ? " (« " + t.nom + " »)" : "");
+        if (!t || typeof t !== "object") { pb.push(rt + " : ce n'est pas un objet."); return; }
+        if (t.id === undefined || t.id === "") pb.push(rt + " : champ « id » manquant.");
+        else if (ids.has(t.id)) pb.push(rt + " : l'id « " + t.id + " » est utilisé deux fois.");
+        else ids.add(t.id);
+        if (!t.nom) pb.push(rt + " : champ « nom » manquant.");
+        if (Array.isArray(t.sous_taches) && t.sous_taches.length) {
+          t.sous_taches.forEach((s, si) => {
+            const rs = rt + ", sous-tâche n°" + (si + 1);
+            if (!s || !s.nom) pb.push(rs + " : champ « nom » manquant.");
+            if (!estPasDemiJour(s && s.duree_jours)) pb.push(rs + " : « duree_jours » doit être un nombre par pas de 0.5 (reçu : " + JSON.stringify(s && s.duree_jours) + ").");
+          });
+        } else if (t.sous_taches !== undefined && !Array.isArray(t.sous_taches)) {
+          pb.push(rt + " : « sous_taches » doit être une liste.");
+        } else if (!estPasDemiJour(t.duree_jours)) {
+          pb.push(rt + " : « duree_jours » doit être un nombre par pas de 0.5 (reçu : " + JSON.stringify(t.duree_jours) + ").");
+        }
+        if (!Number.isInteger(t.effectif) || t.effectif < 1) pb.push(rt + " : « effectif » doit être un nombre entier ≥ 1 (reçu : " + JSON.stringify(t.effectif) + ").");
+        if (t.materiel === undefined) pb.push(rt + " : champ « materiel » manquant.");
+        if (!Array.isArray(t.apres)) pb.push(rt + " : « apres » doit être une liste (même vide : []).");
+      });
+      c.taches.forEach((t, ti) => {
+        if (t && Array.isArray(t.apres)) t.apres.forEach((a) => {
+          if (!ids.has(a)) pb.push(ref + ", tâche « " + (t.nom || ti + 1) + " » : « apres » cite l'id « " + a + " » qui n'existe pas dans ce chantier.");
+          if (a === t.id) pb.push(ref + ", tâche « " + t.nom + " » : une tâche ne peut pas dépendre d'elle-même.");
+        });
+      });
+    });
+    return pb;
+  }
+
+  /* ---------- Chargement ---------- */
+  async function charger() {
+    if (location.protocol === "file:") {
+      afficherErreur("Le fichier ne peut pas être chargé en ouvrant index.html directement.",
+        "Le navigateur bloque la lecture de <code>chantiers.json</code> depuis le disque. Publiez le dossier sur GitHub Pages, ou lancez un petit serveur local (ex. <code>python -m http.server</code> dans le dossier) puis ouvrez <code>http://localhost:8000</code>.");
+      return;
+    }
+    let rep, texte;
+    try {
+      rep = await fetch(FICHIER, { cache: "no-cache" });
+    } catch (e) {
+      afficherErreur("Impossible de joindre le fichier chantiers.json.", "Vérifiez votre connexion. Détail technique : " + echapper(e.message));
+      return;
+    }
+    if (!rep.ok) {
+      afficherErreur("Fichier chantiers.json introuvable (erreur " + rep.status + ").",
+        "Le fichier doit se trouver dans le même dossier que <code>index.html</code>, avec ce nom exact (minuscules, sans espace).");
+      return;
+    }
+    texte = await rep.text();
+    let donnees;
+    try {
+      donnees = JSON.parse(texte.replace(/^﻿/, ""));
+    } catch (e) {
+      const pos = positionErreurJSON(e, texte);
+      afficherErreur("Le fichier chantiers.json contient une erreur de syntaxe.",
+        (pos ? "Problème vers la <strong>ligne " + pos.ligne + "</strong>, colonne " + pos.colonne + ". " : "") +
+        "Causes fréquentes : virgule manquante ou en trop, guillemet oublié, crochet ou accolade non fermé.<br><small>Message du navigateur : " + echapper(e.message) + "</small>",
+        pos ? extraitLignes(texte, pos.ligne) : "");
+      return;
+    }
+    const pb = valider(donnees);
+    if (pb.length) {
+      afficherErreur("Le fichier chantiers.json est lisible mais incomplet ou incorrect (" + pb.length + " problème" + (pb.length > 1 ? "s" : "") + ").",
+        "<ul><li>" + pb.slice(0, 30).map(echapper).join("</li><li>") + "</li></ul>" + (pb.length > 30 ? "… et " + (pb.length - 30) + " autres." : ""));
+      return;
+    }
+    chantiers = donnees;
+    initialiser();
+  }
+
+  /* ---------- Modèle de travail ---------- */
+  function copieTravail(c) {
+    return {
+      nom: c.nom,
+      taches: c.taches.map((t) => ({
+        source: t,
+        active: true,
+        effectif: t.effectif,
+        duree: t.duree_jours,
+        sous: Array.isArray(t.sous_taches) && t.sous_taches.length
+          ? t.sous_taches.map((s) => ({ nom: s.nom, duree: s.duree_jours, origine: s.duree_jours }))
+          : null,
+        ouvert: true
+      }))
+    };
+  }
+  function dureeTache(t) {
+    return t.sous ? t.sous.reduce((s, x) => s + x.duree, 0) : t.duree;
+  }
+  function dureeOrigine(t) {
+    return t.sous ? t.source.sous_taches.reduce((s, x) => s + x.duree_jours, 0) : t.source.duree_jours;
+  }
+  function trouver(id) {
+    return etat.taches.find((t) => t.source.id === id);
+  }
+
+  /* ---------- Affichage ---------- */
+  function initialiser() {
+    el("message").classList.add("cache");
+    el("appli").classList.remove("cache");
+    const sel = el("choixChantier");
+    sel.innerHTML = chantiers.map((c, i) => '<option value="' + i + '">' + echapper(c.nom) + "</option>").join("");
+    sel.addEventListener("change", () => { etat = copieTravail(chantiers[+sel.value]); rendre(); });
+    el("toutCocher").addEventListener("click", () => { etat.taches.forEach((t) => (t.active = true)); rendre(); });
+    el("toutDecocher").addEventListener("click", () => { etat.taches.forEach((t) => (t.active = false)); rendre(); });
+    el("reinit").addEventListener("click", () => { etat = copieTravail(chantiers[+sel.value]); rendre(); });
+    el("listeTaches").addEventListener("change", surModif);
+    el("listeTaches").addEventListener("click", surClic);
+    etat = copieTravail(chantiers[0]);
+    rendre();
+  }
+
+  function rendre() {
+    const html = etat.taches.map((t, i) => {
+      const s = t.source;
+      const d = dureeTache(t);
+      const modifie = d !== dureeOrigine(t) || t.effectif !== s.effectif;
+      const deps = s.apres.map((id) => { const x = trouver(id); return x ? x.source.nom : id; });
+      const depsInactives = s.apres.map(trouver).filter((x) => x && !x.active).map((x) => x.source.nom);
+      const materiel = Array.isArray(s.materiel) ? s.materiel.join(", ") : s.materiel;
+
+      let sousHtml = "";
+      if (t.sous) {
+        sousHtml = '<div class="sous"><button type="button" class="lien" data-action="plier" data-i="' + i + '">' +
+          (t.ouvert ? "Masquer" : "Afficher") + " les " + t.sous.length + " sous-tâches</button>" +
+          (t.ouvert ? '<div style="margin-top:8px">' + t.sous.map((x, j) =>
+            '<div class="sous-ligne"><span>' + echapper(x.nom) + (x.duree !== x.origine ? '<span class="badge">modifié</span>' : "") + "</span>" +
+            '<input type="number" min="0" step="0.5" inputmode="decimal" aria-label="Durée en jours : ' + echapper(x.nom) + '" data-champ="sous" data-i="' + i + '" data-j="' + j + '" value="' + x.duree + '"' + (t.active ? "" : " disabled") + "></div>"
+          ).join("") + "</div>" : "") + "</div>";
+      }
+
+      return '<div class="tache' + (t.active ? "" : " inactive") + '">' +
+        '<div class="tache-entete">' +
+          '<input type="checkbox" id="chk-' + i + '" data-champ="active" data-i="' + i + '"' + (t.active ? " checked" : "") + ">" +
+          '<label for="chk-' + i + '" class="tache-titre" style="color:inherit;font-size:1rem;margin:0">' +
+            '<span class="num">' + (i + 1) + ".</span>" + echapper(s.nom) + (modifie ? '<span class="badge">modifié</span>' : "") +
+          "</label>" +
+        "</div>" +
+        '<div class="details">' +
+          "<div><label for=\"dur-" + i + '">Durée (jours)</label>' +
+            '<input id="dur-' + i + '" type="number" min="0" step="0.5" inputmode="decimal" data-champ="duree" data-i="' + i + '" value="' + d + '"' +
+            (t.sous ? ' disabled title="Somme des sous-tâches"' : (t.active ? "" : " disabled")) + "></div>" +
+          "<div><label for=\"eff-" + i + '">Effectif</label>' +
+            '<input id="eff-' + i + '" type="number" min="1" step="1" inputmode="numeric" data-champ="effectif" data-i="' + i + '" value="' + t.effectif + '"' + (t.active ? "" : " disabled") + "></div>" +
+          '<div class="materiel"><label>Matériel</label>' + echapper(materiel || "—") + "</div>" +
+        "</div>" +
+        '<div class="meta">' + (deps.length ? "À faire après : " + deps.map(echapper).join(", ") : "Aucune tâche préalable") +
+          (t.sous ? " · Durée = somme des sous-tâches" : "") +
+          (modifie ? ' · <button type="button" class="lien" data-action="annuler" data-i="' + i + '">valeurs d\'origine : ' + jours(dureeOrigine(t)) + ", " + s.effectif + " pers.</button>" : "") +
+        "</div>" +
+        (s.commentaire ? '<div class="commentaire">' + echapper(s.commentaire) + "</div>" : "") +
+        (t.active && depsInactives.length ? '<div class="avert">Attention : cette tâche dépend de « ' + depsInactives.map(echapper).join(" », « ") + " », qui n'est pas cochée.</div>" : "") +
+        sousHtml +
+      "</div>";
+    }).join("");
+    el("listeTaches").innerHTML = html;
+    totaux();
+  }
+
+  function totaux() {
+    const actives = etat.taches.filter((t) => t.active);
+    const tj = actives.reduce((s, t) => s + dureeTache(t), 0);
+    const jh = actives.reduce((s, t) => s + dureeTache(t) * t.effectif, 0);
+    el("totalJours").textContent = fmt(tj);
+    el("totalJH").textContent = fmt(jh);
+    el("nbTaches").textContent = actives.length + " / " + etat.taches.length;
+  }
+
+  function lireDemiJour(input, ancien) {
+    let v = parseFloat(String(input.value).replace(",", "."));
+    if (!isFinite(v) || v < 0) return ancien;
+    return Math.round(v * 2) / 2; // arrondi au demi-jour
+  }
+
+  function surModif(e) {
+    const c = e.target.dataset.champ;
+    if (!c) return;
+    const t = etat.taches[+e.target.dataset.i];
+    if (c === "active") t.active = e.target.checked;
+    else if (c === "duree") t.duree = lireDemiJour(e.target, t.duree);
+    else if (c === "sous") { const s = t.sous[+e.target.dataset.j]; s.duree = lireDemiJour(e.target, s.duree); }
+    else if (c === "effectif") {
+      const v = parseInt(e.target.value, 10);
+      if (Number.isInteger(v) && v >= 1) t.effectif = v;
+    }
+    rendre();
+  }
+
+  function surClic(e) {
+    const a = e.target.dataset.action;
+    if (!a) return;
+    const t = etat.taches[+e.target.dataset.i];
+    if (a === "plier") t.ouvert = !t.ouvert;
+    if (a === "annuler") {
+      t.duree = t.source.duree_jours;
+      t.effectif = t.source.effectif;
+      if (t.sous) t.sous.forEach((s) => (s.duree = s.origine));
+    }
+    rendre();
+  }
+
+  charger();
+})();
+</script>
+</body>
+</html>
